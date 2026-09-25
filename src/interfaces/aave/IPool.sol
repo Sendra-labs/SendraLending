@@ -18,6 +18,14 @@ interface IPool {
         external
         returns (uint256);
 
+    function flashLoanSimple(
+        address receiverAddress,
+        address asset,
+        uint256 amount,
+        bytes calldata params,
+        uint16 referralCode
+    ) external;
+
     function getUserAccountData(address user)
         external
         view

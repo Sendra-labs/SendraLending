@@ -15,7 +15,11 @@ interface IAddressProviderAdmin {
  *      Caller must be a Sendra admin. After deploy, whitelist both contracts in Roles.
  */
 contract DeployAaveLending is Script {
-    function run() external {
+    function run() external pure {
+        revert("Usa script/DeployAaveStrategies.s.sol. Este deploy abre el tipo 4, que ya es spot.");
+    }
+
+    function runRetired() external {
         address addressProvider = vm.envAddress("ADDRESS_PROVIDER");
         address aavePool = vm.envAddress("AAVE_POOL");
         address aaveOracle = vm.envAddress("AAVE_ORACLE");
