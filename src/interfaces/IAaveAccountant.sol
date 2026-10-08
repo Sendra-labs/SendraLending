@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import {SwapTypes} from "../lib/aave/SwapTypes.sol";
+import {AaveLib} from "../lib/aave/Aave.lib.sol";
 
 interface IAaveAccountant {
     function openSupply(address owner, address asset, uint256 usdcAmount, SwapTypes.SwapInput calldata swap) external;
@@ -41,6 +42,14 @@ interface IAaveAccountant {
     function release(address owner, uint256 positionId) external;
 
     function close(address owner, uint256 positionId, SwapTypes.SwapInput calldata swap) external;
+
+    function openBasket(
+        address owner,
+        address collateral,
+        uint256 usdcAmount,
+        SwapTypes.SwapInput calldata buyCollateral,
+        AaveLib.BasketBuy[] calldata buys
+    ) external;
 
     function debtOf(address account, address asset) external view returns (uint256);
 }

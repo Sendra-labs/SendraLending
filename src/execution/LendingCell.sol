@@ -8,6 +8,7 @@ import {ISendraAddressProvider} from "../interfaces/iSendraCore/ISendraAddressPr
 import {IAaveAccountant} from "../interfaces/IAaveAccountant.sol";
 import {SwapTypes} from "../lib/aave/SwapTypes.sol";
 import {LpMount} from "../lib/aave/LpMount.sol";
+import {AaveLib} from "../lib/aave/Aave.lib.sol";
 
 /**
  * @title LendingCell
@@ -49,6 +50,10 @@ contract LendingCell {
         return true;
     }
 
+    function basketEnabled() external pure returns (bool) {
+        return true;
+    }
+
     function push(address token, address to, uint256 amount) external onlyAccountant {
         IERC20(token).safeTransfer(to, amount);
     }
@@ -69,6 +74,16 @@ contract LendingCell {
                 revert(add(reason, 32), mload(reason))
             }
         }
+    }
+
+    function openBasket(
+        address collateral,
+        uint256 usdcAmount,
+        SwapTypes.SwapInput calldata buyCollateral,
+        AaveLib.BasketBuy[] calldata buys
+    ) external onlyOwner nonReentrant {
+        _fund(addressProvider.getAddress("USDC"), usdcAmount);
+        _accountant().openBasket(owner, collateral, usdcAmount, buyCollateral, buys);
     }
 
     function openSupply(address asset, uint256 usdcAmount, SwapTypes.SwapInput calldata swap) external onlyOwner nonReentrant {

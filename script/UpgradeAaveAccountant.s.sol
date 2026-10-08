@@ -5,8 +5,11 @@ import { Script, console } from "forge-std/Script.sol";
 import { AaveAccountant } from "../src/accounting/AaveAccountant.sol";
 
 /**
- * Solo el accountant. El manager y las cuentas se quedan.
- * El cierre de un loop paga la deuda con flash loan antes de retirar el colateral.
+ * Accountant nuevo. El constructor despliega también el ledger, el desk y el seller.
+ * Los libros abiertos siguen en las cuentas viejas. close() de esas cuentas
+ * llama al accountant del provider, así que no hay que retirar nada antes.
+ * Un supply de BTC o ETH se vende a USDC en el cierre. USDC sale en USDC.
+ * Una cuenta ya desplegada no aprende openBasket: esa estrategia pide una cuenta nueva.
  *
  * Desde SendraLending/ en WSL:
  *   forge script script/UpgradeAaveAccountant.s.sol --target-contract UpgradeAaveAccountant --rpc-url arbitrum --broadcast
@@ -28,6 +31,7 @@ contract UpgradeAaveAccountant is Script {
 
         console.log("AaveAccountant:", address(accountant));
         console.log("AaveLedger:", address(accountant.ledger()));
+        console.log("AaveDesk:", address(accountant.desk()));
     }
 }
 

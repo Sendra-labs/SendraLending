@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {SwapTypes} from "./SwapTypes.sol";
+
 library AaveLib {
     /// @notice Legacy supply+borrow bundle. Spot already uses type 4, so this stays unused.
     uint128 constant POSITION_TYPE = 4;
@@ -9,6 +11,14 @@ library AaveLib {
     uint8 constant LOOP = 6;
     uint8 constant SHORT = 7;
     uint8 constant LEVERAGED_LP = 8;
+    /// @notice One USDC debt, several supplied assets. The first is the collateral that opens the borrow.
+    uint8 constant BASKET = 9;
+
+    struct BasketBuy {
+        address asset;
+        uint16 borrowBps;
+        SwapTypes.SwapInput swap;
+    }
 
     uint256 constant BPS = 10_000;
     uint8 constant MAX_LOOPS = 4;

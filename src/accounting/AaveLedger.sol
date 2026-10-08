@@ -23,11 +23,13 @@ contract AaveLedger {
     }
 
     address public immutable accountant;
+    address public immutable registry;
     IPositionInitializer public immutable initializer;
     ISendraStorage public immutable store;
 
     constructor(address provider, address _accountant) {
         accountant = _accountant;
+        registry = provider;
         ISendraAddressProvider addresses = ISendraAddressProvider(provider);
         initializer = IPositionInitializer(addresses.getAddress("PositionInitializer"));
         store = ISendraStorage(addresses.getAddress("SendraStorage"));
@@ -57,7 +59,7 @@ contract AaveLedger {
         _accrueClose(owner, book.kind, book.principalUsdc, capitalOut, pnl, book.openedAt);
         _write(owner, account, book, true, pnl, false);
         store.decreaseGlobalPositionActivePositions(owner);
-        store.updateUserGlobalPnl(owner, pnl);
+        store.updateUserGlobalPnl(_reputation(owner), pnl);
     }
 
     function _write(
@@ -100,9 +102,10 @@ contract AaveLedger {
     }
 
     function _accrueOpen(address owner, uint8 kind, uint256 capital) internal {
-        uint256 peak = uint256(store.getUniqueGlobalAccumulator(2, owner));
-        uint256 current = uint256(store.getUniqueGlobalAccumulator(3, owner));
-        uint256 last = uint256(store.getUniqueGlobalAccumulator(15, owner));
+        address who = _reputation(owner);
+        uint256 peak = uint256(store.getUniqueGlobalAccumulator(2, who));
+        uint256 current = uint256(store.getUniqueGlobalAccumulator(3, who));
+        uint256 last = uint256(store.getUniqueGlobalAccumulator(15, who));
         uint256 next = current + capital;
         uint8[] memory gIds = new uint8[](5);
         int256[] memory gDeltas = new int256[](5);
@@ -122,7 +125,7 @@ contract AaveLedger {
         sDeltas[0] = int256(capital);
         sIds[1] = 5;
         sDeltas[1] = 1;
-        _pulse(owner, kind, gIds, gDeltas, sIds, sDeltas);
+        _pulse(who, kind, gIds, gDeltas, sIds, sDeltas);
     }
 
     function _accrueClose(
@@ -133,13 +136,14 @@ contract AaveLedger {
         int256 pnl,
         uint256 openedAt
     ) internal {
-        int256 highWaterMark = store.getUniqueGlobalAccumulator(7, owner);
-        int256 currentPnl = store.getUniqueGlobalAccumulator(4, owner);
+        address who = _reputation(owner);
+        int256 highWaterMark = store.getUniqueGlobalAccumulator(7, who);
+        int256 currentPnl = store.getUniqueGlobalAccumulator(4, who);
         int256 newPnl = currentPnl + pnl;
-        int256 maxDrawdown = store.getUniqueGlobalAccumulator(8, owner);
-        int256 streak = store.getUniqueGlobalAccumulator(17, owner);
-        int256 maxStreak = store.getUniqueGlobalAccumulator(18, owner);
-        uint256 last = uint256(store.getUniqueGlobalAccumulator(15, owner));
+        int256 maxDrawdown = store.getUniqueGlobalAccumulator(8, who);
+        int256 streak = store.getUniqueGlobalAccumulator(17, who);
+        int256 maxStreak = store.getUniqueGlobalAccumulator(18, who);
+        uint256 last = uint256(store.getUniqueGlobalAccumulator(15, who));
         uint8[] memory gIds = new uint8[](13);
         int256[] memory gDeltas = new int256[](13);
         gIds[0] = 1;
@@ -190,7 +194,21 @@ contract AaveLedger {
         sDeltas[1] = int256(capitalOut);
         sIds[2] = pnl > 0 ? 3 : 4;
         sDeltas[2] = pnl == 0 ? int256(0) : int256(1);
-        _pulse(owner, kind, gIds, gDeltas, sIds, sDeltas);
+        _pulse(who, kind, gIds, gDeltas, sIds, sDeltas);
+    }
+
+    /// @dev Book stays on `owner`. Pulse moves to the enclave operator when EnclavePulse says so.
+    function _reputation(address owner) internal view returns (address) {
+        (bool ok, bytes memory data) = registry.staticcall(
+            abi.encodeWithSignature("getAddress(string)", "EnclavePulse")
+        );
+        if (!ok || data.length < 32) return owner;
+        address pulse = abi.decode(data, (address));
+        if (pulse == address(0)) return owner;
+        (bool okTo, bytes memory whoData) = pulse.staticcall(abi.encodeWithSignature("recipient(address)", owner));
+        if (!okTo || whoData.length < 32) return owner;
+        address who = abi.decode(whoData, (address));
+        return who == address(0) ? owner : who;
     }
 
     function _pulse(
