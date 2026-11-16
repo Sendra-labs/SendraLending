@@ -13,7 +13,6 @@ library LpMount {
 
     function mount(
         address orchestrator,
-        address store,
         address usdc,
         bytes calldata encoded
     ) internal returns (uint256 uniId, uint256 lpPositionId) {
@@ -26,22 +25,10 @@ library LpMount {
         lp.provideLiquidityInput.amount0 = lp.provideLiquidityInput.amount0 * budget / basis;
         lp.provideLiquidityInput.amount1 = lp.provideLiquidityInput.amount1 * budget / basis;
         lp.provideLiquidityInput.recipient = address(this);
-        lp.provideLiquidityInput.user = address(this);
-        lp.isSendraRecipient = false;
+        lp.provideLiquidityInput.user = ICellOwner(address(this)).owner();
 
         IERC20(usdc).forceApprove(orchestrator, budget);
-        uint256 beforeBal = INpmEnumerable(NPM).balanceOf(address(this));
-        ILiquidityOrchestrator(orchestrator).provideLiquidity(lp);
-        uniId = INpmEnumerable(NPM).tokenOfOwnerByIndex(address(this), beforeBal);
-        lpPositionId = _positionCount(store);
-    }
-
-    function _positionCount(address store) private view returns (uint256 total) {
-        (bool ok, bytes memory data) = store.staticcall(abi.encodeWithSignature("getUser(address)", address(this)));
-        if (!ok || data.length < 128) return 0;
-        assembly {
-            total := mload(add(data, 128))
-        }
+        (lpPositionId, uniId) = ILiquidityOrchestrator(orchestrator).provideLiquidity(lp);
     }
 
     function unwind(address orchestrator, uint256 uniId, uint256 lpPositionId, bytes calldata encoded)
@@ -52,7 +39,7 @@ library LpMount {
             abi.decode(encoded, (LpTypes.ExecuteWithdrawLiquidityAndCollectFees));
         exit.withdrawLiquidityInput.uniId = uint128(uniId);
         exit.withdrawLiquidityInput.positionId = lpPositionId;
-        exit.withdrawLiquidityInput.user = address(this);
+        exit.withdrawLiquidityInput.user = ICellOwner(address(this)).owner();
         INpmEnumerable(NPM).approve(orchestrator, uniId);
         usdcOut = ILiquidityOrchestrator(orchestrator).withdrawLiquidityAndCollectFees(exit);
     }
@@ -65,11 +52,14 @@ library LpMount {
         uint256 first = type(uint256).max;
         for (uint256 i = 0; i < swap.swapInstructions.length; i++) {
             uint256 hopIn = swap.swapInstructions[i].amountIn;
-            if (hopIn == 0) continue;
-            if (first == type(uint256).max) first = i;
-            swap.swapInstructions[i].amountIn = hopIn * budget / basis;
-            swap.swapInstructions[i].amountOut = swap.swapInstructions[i].amountOut * budget / basis;
-            rooted += swap.swapInstructions[i].amountIn;
+            if (hopIn != 0) {
+                if (first == type(uint256).max) first = i;
+                swap.swapInstructions[i].amountIn = hopIn * budget / basis;
+                rooted += swap.swapInstructions[i].amountIn;
+            }
+            // The output floor sits on the last hop, whose amountIn is 0. It has to move with the borrow.
+            uint256 hopOut = swap.swapInstructions[i].amountOut;
+            if (hopOut != 0) swap.swapInstructions[i].amountOut = hopOut * budget / basis;
         }
         if (first != type(uint256).max && rooted < swap.amountIn0) {
             swap.swapInstructions[first].amountIn += swap.amountIn0 - rooted;
@@ -77,4 +67,8 @@ library LpMount {
     }
 
     error EmptyLp();
+}
+
+interface ICellOwner {
+    function owner() external view returns (address);
 }

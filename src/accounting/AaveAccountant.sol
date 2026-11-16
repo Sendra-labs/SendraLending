@@ -40,8 +40,10 @@ contract AaveAccountant is AaveStore {
     address public immutable usdc;
 
     /// @dev Books still sitting on the accountants this one replaces.
-    address public constant PREVIOUS_ACCOUNTANT = 0x7F7F49fA9b935a9C1564FBBA0611E4C3D55c078B;
-    address public constant EARLIER_ACCOUNTANT = 0xEb4a50a13EE9760e89f34cA17c42BfE4F57d74a3;
+    ///      0x6E1152 is the live accountant. Its desk still calls the SwapRouter from
+    ///      before the minHopPrice fix, so every non-USDC swap reverts SliceOutOfBounds.
+    address public constant PREVIOUS_ACCOUNTANT = 0x6E1152e04248Ea509Df12E4b3E7Cd64ba03315B5;
+    address public constant EARLIER_ACCOUNTANT = 0x7F7F49fA9b935a9C1564FBBA0611E4C3D55c078B;
 
     constructor(address _addressProvider) {
         addressProvider = ISendraAddressProvider(_addressProvider);

@@ -16,6 +16,8 @@ library LpTypes {
         int24 tickLower;
         int24 tickUpper;
         uint24 fee;
+        int24 tickSpacing;
+        address hooks;
     }
 
     struct ExecuteProvideLiquidityInput {
@@ -24,7 +26,6 @@ library LpTypes {
         SwapTypes.SwapInput invertedSwapInput0;
         SwapTypes.SwapInput invertedSwapInput1;
         ProvideLiquidityInput provideLiquidityInput;
-        bool isSendraRecipient;
     }
 
     struct WithdrawLiquidityInput {
@@ -41,7 +42,9 @@ library LpTypes {
 }
 
 interface ILiquidityOrchestrator {
-    function provideLiquidity(LpTypes.ExecuteProvideLiquidityInput calldata input) external;
+    function provideLiquidity(LpTypes.ExecuteProvideLiquidityInput calldata input)
+        external
+        returns (uint256 positionId, uint256 tokenId);
 
     function withdrawLiquidityAndCollectFees(LpTypes.ExecuteWithdrawLiquidityAndCollectFees calldata input)
         external
